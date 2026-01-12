@@ -8,17 +8,17 @@ import doc from "./doc.js";
 export const show = (data, file, id) => {
   let ext = file.split(".").at(-1);
   if ("pdf" === ext) {
-    document.getElementById("view").innerHTML = pdf(data);
+    document.getElementById(id).innerHTML = pdf(data);
   } else if ("png" === ext) {
-    document.getElementById("view").innerHTML = png(data);
+    document.getElementById(id).innerHTML = png(data);
   } else if ("jpeg" === ext || "jpg" === ext) {
-    document.getElementById("view").innerHTML = jpeg(data);
+    document.getElementById(id).innerHTML = jpeg(data);
   } else if ("eml" === ext) {
-    document.getElementById("view").innerHTML = eml(data);
+    document.getElementById(id).innerHTML = eml(data);
   } else if ("html" === ext) {
-    document.getElementById("view").innerHTML = html(data);
+    document.getElementById(id).innerHTML = html(data);
   } else if ("xlsx" === ext || "xls" === ext || "csv" === ext) {
-    document.getElementById("view").innerHTML = xlsx(data);
+    document.getElementById(id).innerHTML = xlsx(data);
   } else if ("docx" === ext || "doc" === ext) {
     doc(data, id);
   }
