@@ -5,7 +5,7 @@ module.exports = {
   entry: "./src/index.js",
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: "dv-view.js",
+    filename: "db-view.js",
     // The name of the library
     library: "db",
     // Allows the library to be used in different environments (Node, Browser, etc.)
