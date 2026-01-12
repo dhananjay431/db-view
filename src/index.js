@@ -5,8 +5,10 @@ import eml from "./eml.js";
 import html from "./html.js";
 import xlsx from "./xlsx.js";
 import doc from "./doc.js";
+import txt from "./txt.js";
+import svg from "./svg.js";
 export const show = (data, file, id) => {
-  let ext = file.split(".").at(-1);
+  let ext = file.split(".").at(-1).toLowerCase();
   if ("pdf" === ext) {
     document.getElementById(id).innerHTML = pdf(data);
   } else if ("png" === ext) {
@@ -21,5 +23,9 @@ export const show = (data, file, id) => {
     document.getElementById(id).innerHTML = xlsx(data);
   } else if ("docx" === ext || "doc" === ext) {
     doc(data, id);
+  } else if ("txt" === ext || "xml" === ext) {
+    document.getElementById(id).textContent = txt(data, id);
+  } else if ("svg" === ext) {
+    document.getElementById(id).innerHTML = svg(data, id);
   }
 };
