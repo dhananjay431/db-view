@@ -25,7 +25,14 @@ function getEmbedId(blip) {
 }
 
 function parseXml(content) {
+  if (typeof DOMParser === "undefined") return null;
   return new DOMParser().parseFromString(content, "application/xml");
+}
+
+function toBase64(content) {
+  if (typeof btoa === "function") return btoa(content);
+  if (typeof Buffer !== "undefined") return Buffer.from(content, "binary").toString("base64");
+  return null;
 }
 
 function getFileContent(workbook, path) {
@@ -43,7 +50,7 @@ function getFileAsBase64(workbook, path) {
   const file = workbook.files?.[path];
   if (!file || !file.content) return null;
   const content = file.content;
-  if (typeof content === "string") return btoa(content);
+  if (typeof content === "string") return toBase64(content);
   const bytes =
     content instanceof Uint8Array
       ? content
@@ -56,7 +63,7 @@ function getFileAsBase64(workbook, path) {
   for (let i = 0; i < bytes.length; i += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
-  return btoa(binary);
+  return toBase64(binary);
 }
 
 function getRelationshipsById(relationshipsXml) {
@@ -76,7 +83,9 @@ function extractSheetImages(workbook, sheetName) {
   if (!workbookXmlText || !workbookRelsText) return [];
 
   const workbookXml = parseXml(workbookXmlText);
-  const workbookRels = getRelationshipsById(parseXml(workbookRelsText));
+  const workbookRelsXml = parseXml(workbookRelsText);
+  if (!workbookXml || !workbookRelsXml) return [];
+  const workbookRels = getRelationshipsById(workbookRelsXml);
   const sheet = Array.from(workbookXml.querySelectorAll("sheet")).find(
     (node) => node.getAttribute("name") === sheetName
   );
@@ -94,6 +103,7 @@ function extractSheetImages(workbook, sheetName) {
   if (!sheetRelsText) return [];
 
   const sheetRels = parseXml(sheetRelsText);
+  if (!sheetRels) return [];
   const drawingRel = Array.from(sheetRels.querySelectorAll("Relationship")).find((rel) =>
     /\/drawing$/.test(rel.getAttribute("Type") || "")
   );
@@ -110,7 +120,9 @@ function extractSheetImages(workbook, sheetName) {
   if (!drawingRelsText) return [];
 
   const drawingXml = parseXml(drawingXmlText);
-  const drawingRels = getRelationshipsById(parseXml(drawingRelsText));
+  const drawingRelsXml = parseXml(drawingRelsText);
+  if (!drawingXml || !drawingRelsXml) return [];
+  const drawingRels = getRelationshipsById(drawingRelsXml);
   const anchors = [
     ...Array.from(drawingXml.querySelectorAll("oneCellAnchor")),
     ...Array.from(drawingXml.querySelectorAll("twoCellAnchor")),
@@ -173,6 +185,7 @@ function ensureCell(table, rowIndex, columnIndex) {
 
 function appendImagesToHtml(html, images) {
   if (!images.length) return html;
+  if (typeof DOMParser === "undefined") return html;
   const doc = new DOMParser().parseFromString(html, "text/html");
   const table = doc.querySelector("table");
   if (!table) return html;
@@ -184,13 +197,13 @@ function appendImagesToHtml(html, images) {
       cell = ensureCell(table, decoded.r, decoded.c);
       cell.id = `sjs-${address}`;
     }
-    const image = doc.createElement("img");
-    image.src = src;
-    image.alt = "xlsx image";
-    image.style.display = "block";
-    if (width) image.width = width;
-    if (height) image.height = height;
-    cell.appendChild(image);
+    const imgElement = doc.createElement("img");
+    imgElement.src = src;
+    imgElement.alt = `Excel image at ${address}`;
+    imgElement.style.display = "block";
+    if (width) imgElement.width = width;
+    if (height) imgElement.height = height;
+    cell.appendChild(imgElement);
   });
 
   return doc.documentElement.outerHTML;
