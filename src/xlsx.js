@@ -1,4 +1,6 @@
 let XLSX = require("xlsx");
+const BINARY_CHUNK_SIZE = 0x8000;
+const EMU_TO_PIXELS = 9525;
 
 function normalizePath(basePath, targetPath) {
   if (targetPath.startsWith("/")) return targetPath.replace(/^\/+/, "");
@@ -59,9 +61,8 @@ function getFileAsBase64(workbook, path) {
       : null;
   if (!bytes) return null;
   let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  for (let i = 0; i < bytes.length; i += BINARY_CHUNK_SIZE) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + BINARY_CHUNK_SIZE));
   }
   return toBase64(binary);
 }
@@ -147,8 +148,8 @@ function extractSheetImages(workbook, sheetName) {
       const extNode = anchor.querySelector("ext");
       const cx = Number(extNode?.getAttribute("cx") || "0");
       const cy = Number(extNode?.getAttribute("cy") || "0");
-      const width = cx > 0 ? Math.round(cx / 9525) : null;
-      const height = cy > 0 ? Math.round(cy / 9525) : null;
+      const width = cx > 0 ? Math.round(cx / EMU_TO_PIXELS) : null;
+      const height = cy > 0 ? Math.round(cy / EMU_TO_PIXELS) : null;
 
       const extension = mediaPath.split(".").pop()?.toLowerCase() || "png";
       const mimeType =
@@ -199,7 +200,7 @@ function appendImagesToHtml(html, images) {
     }
     const imgElement = doc.createElement("img");
     imgElement.src = src;
-    imgElement.alt = `Excel image at ${address}`;
+    imgElement.alt = "";
     if (width) imgElement.width = width;
     if (height) imgElement.height = height;
     cell.appendChild(imgElement);
