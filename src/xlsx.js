@@ -9,6 +9,7 @@ const MIME_TYPES = {
   webp: "image/webp",
   svg: "image/svg+xml",
 };
+const BASE64_CHUNK_SIZE = 0x8000;
 
 const toUtf8 = (content) => {
   if (!content) return "";
@@ -23,9 +24,8 @@ const toBase64 = (content) => {
   }
   const bytes = content instanceof Uint8Array ? content : new Uint8Array(content);
   let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK_SIZE));
   }
   return btoa(binary);
 };
@@ -123,7 +123,7 @@ const getWorkbookImagesByCell = (workbook, sheetName) => {
     if (!imageContent) continue;
 
     const ext = (getFileName(imagePath).split(".").pop() || "").toLowerCase();
-    const mimeType = MIME_TYPES[ext] || "application/octet-stream";
+    const mimeType = MIME_TYPES[ext] || "image/png";
     images.push({
       cell: XLSX.utils.encode_cell({ c: Number(colMatch[1]), r: Number(rowMatch[1]) }),
       src: `data:${mimeType};base64,${toBase64(imageContent)}`,
@@ -135,17 +135,21 @@ const getWorkbookImagesByCell = (workbook, sheetName) => {
 
 const injectImagesInHtml = (html, images) => {
   let updatedHtml = html;
-  const added = new Set();
+  const imageMap = {};
   for (const image of images) {
     if (!image?.cell || !image?.src) continue;
-    const cellKey = `sjs-${image.cell}`;
+    if (!imageMap[image.cell]) imageMap[image.cell] = [];
+    imageMap[image.cell].push(image.src);
+  }
+
+  for (const cell of Object.keys(imageMap)) {
+    const cellKey = `sjs-${cell}`;
+    const imagesHtml = imageMap[cell]
+      .map((src) => `<img src="${src}" alt="" style="max-width:100%;height:auto;display:block;"/>`)
+      .join("<br/>");
     const matchRegex = new RegExp(`(<td[^>]*\\bid=["']${cellKey}["'][^>]*>)([\\s\\S]*?)(</td>)`);
     updatedHtml = updatedHtml.replace(matchRegex, (full, openTag, content, closeTag) => {
-      if (added.has(cellKey)) {
-        return `${openTag}${content}<br/><img src="${image.src}" alt="" style="max-width:100%;height:auto;display:block;"/>${closeTag}`;
-      }
-      added.add(cellKey);
-      return `${openTag}${content}<img src="${image.src}" alt="" style="max-width:100%;height:auto;display:block;"/>${closeTag}`;
+      return `${openTag}${content}${imagesHtml}${closeTag}`;
     });
   }
   return updatedHtml;
