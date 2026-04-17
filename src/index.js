@@ -34,7 +34,9 @@ export const show = (data, file, id) => {
   } else if ("html" === ext) {
     document.getElementById(id).innerHTML = html(data);
   } else if ("xlsx" === ext || "xls" === ext || "csv" === ext) {
-    document.getElementById(id).innerHTML = xlsx(data);
+    xlsx(data).then((html) => {
+      document.getElementById(id).innerHTML = html;
+    });
   } else if ("docx" === ext || "doc" === ext) {
     doc(data, id);
   } else if ("txt" === ext || "xml" === ext) {
