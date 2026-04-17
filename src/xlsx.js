@@ -37,6 +37,9 @@ const getDir = (path = "") => {
 };
 
 const getFileName = (path = "") => path.split("/").pop() || "";
+const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const getSafeImageSrc = (value = "") =>
+  /^data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/.test(value) ? value : "";
 
 const normalizePath = (baseFilePath, targetPath) => {
   if (!targetPath) return "";
@@ -145,9 +148,14 @@ const injectImagesInHtml = (html, images) => {
   for (const cell of Object.keys(imageMap)) {
     const cellKey = `sjs-${cell}`;
     const imagesHtml = imageMap[cell]
+      .map(getSafeImageSrc)
+      .filter(Boolean)
       .map((src) => `<img src="${src}" alt="" style="max-width:100%;height:auto;display:block;"/>`)
       .join("<br/>");
-    const matchRegex = new RegExp(`(<td[^>]*\\bid=["']${cellKey}["'][^>]*>)([\\s\\S]*?)(</td>)`);
+    if (!imagesHtml) continue;
+    const matchRegex = new RegExp(
+      `(<td[^>]*\\bid=["']${escapeRegExp(cellKey)}["'][^>]*>)([\\s\\S]*?)(</td>)`
+    );
     updatedHtml = updatedHtml.replace(matchRegex, (full, openTag, content, closeTag) => {
       return `${openTag}${content}${imagesHtml}${closeTag}`;
     });
