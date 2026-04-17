@@ -200,7 +200,6 @@ function appendImagesToHtml(html, images) {
     const imgElement = doc.createElement("img");
     imgElement.src = src;
     imgElement.alt = `Excel image at ${address}`;
-    imgElement.style.display = "block";
     if (width) imgElement.width = width;
     if (height) imgElement.height = height;
     cell.appendChild(imgElement);
