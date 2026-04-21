@@ -264,6 +264,28 @@ function injectImages(tableHtml, images) {
   return container.innerHTML;
 }
 
+function optimizeSheetRef(ws) {
+  let minR = Infinity, maxR = -1;
+  let minC = Infinity, maxC = -1;
+  let hasData = false;
+  
+  for (const key in ws) {
+    if (key.startsWith('!')) continue;
+    const cell = XLSX.utils.decode_cell(key);
+    hasData = true;
+    if (cell.r < minR) minR = cell.r;
+    if (cell.r > maxR) maxR = cell.r;
+    if (cell.c < minC) minC = cell.c;
+    if (cell.c > maxC) maxC = cell.c;
+  }
+  
+  if (hasData) {
+    ws['!ref'] = XLSX.utils.encode_range({s: {r: minR, c: minC}, e: {r: maxR, c: maxC}});
+  } else {
+    ws['!ref'] = 'A1:A1';
+  }
+}
+
 export default async function xlsx(b64Data) {
   const workbook = XLSX.read(b64Data, { type: "base64" });
 
@@ -280,6 +302,7 @@ export default async function xlsx(b64Data) {
   // Single sheet — no tabs needed
   if (sheetNames.length <= 1) {
     const worksheet = workbook.Sheets[sheetNames[0]];
+    optimizeSheetRef(worksheet);
     let tableHtml = XLSX.utils.sheet_to_html(worksheet);
     return injectImages(tableHtml, images);
   }
@@ -309,6 +332,7 @@ export default async function xlsx(b64Data) {
     tabBar += `<div class="xlsx-tab${activeClass}" data-sheet="${safeId}" onclick="var w=this.closest('.xlsx-wrapper');w.querySelectorAll('.xlsx-tab').forEach(function(t){t.classList.remove('active')});w.querySelectorAll('.xlsx-sheet').forEach(function(p){p.classList.remove('active')});this.classList.add('active');w.querySelector('#'+this.getAttribute('data-sheet')).classList.add('active')">${name.replace(/</g, "&lt;")}</div>`;
 
     const worksheet = workbook.Sheets[name];
+    optimizeSheetRef(worksheet);
     let tableHtml = XLSX.utils.sheet_to_html(worksheet);
     tableHtml = injectImages(tableHtml, images);
 
