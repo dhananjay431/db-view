@@ -13,4 +13,12 @@ module.exports = {
     // Fixes 'window is not defined' issues in Node environments
     globalObject: "this",
   },
+  module: {
+    rules: [
+      {
+        test: /pdf\.worker\.min\.mjs$/,
+        type: "asset/inline",
+      },
+    ],
+  },
 };

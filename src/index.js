@@ -102,17 +102,19 @@ const injectStyles = () => {
     .zoom-btn:hover {
       background-color: #0056b3;
     }
-    .image-zoom-wrapper {
+    .content-zoom-wrapper {
       overflow: auto;
-      max-height: 80vh;
+      height: 100vh;
       text-align: center;
       border: 1px solid #eee;
       padding: 20px;
       background: #fafafa;
     }
-    .image-zoom-wrapper img {
+    .zoom-target {
       transition: transform 0.2s ease;
       transform-origin: top center;
+      display: inline-block;
+      min-width: 100%;
     }
   `;
   document.head.appendChild(style);
@@ -121,12 +123,12 @@ const injectStyles = () => {
 if (typeof window !== "undefined" && !window.zoomDbViewImage) {
   window.zoomDbViewImage = function(button, factor) {
     const wrapper = button.parentElement.nextElementSibling;
-    const img = wrapper.querySelector("img") || document.querySelector("img");
-    if (!img) return;
-    let scale = parseFloat(img.getAttribute("data-scale")) || 1;
+    const target = wrapper.classList.contains("zoom-target") ? wrapper : wrapper.querySelector(".zoom-target") || wrapper.querySelector("img");
+    if (!target) return;
+    let scale = parseFloat(target.getAttribute("data-scale")) || 1;
     scale *= factor;
-    img.setAttribute("data-scale", scale);
-    img.style.transform = "scale(" + scale + ")";
+    target.setAttribute("data-scale", scale);
+    target.style.transform = "scale(" + scale + ")";
   };
 }
 
@@ -137,34 +139,48 @@ export const show = (data, file, id) => {
   
   let ext = file.split(".").at(-1).toLowerCase();
   
+  container.innerHTML = `
+    ${ext !== "pdf" ? `
+    <div class="zoom-controls">
+      <button class="zoom-btn" title="Zoom In" onclick="window.zoomDbViewImage(this, 1.2)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+      </button>
+      <button class="zoom-btn" title="Zoom Out" onclick="window.zoomDbViewImage(this, 1/1.2)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+      </button>
+    </div>
+    ` : ''}
+    <div class="content-zoom-wrapper"${ext === 'pdf' ? ' style="padding: 0; border: none; background: transparent;"' : ''}>
+      <div id="${id}-content-target" class="${ext !== "pdf" ? "zoom-target" : ""}" data-scale="1">
+      </div>
+    </div>
+  `;
+  
+  const contentContainer = document.getElementById(`${id}-content-target`);
+  
   if ("pdf" === ext) {
-    container.innerHTML = "";
-    const iframe = document.createElement("iframe");
-    iframe.id = "pdfFrame";
-    iframe.src = pdf(data);
-    container.appendChild(iframe);
+    pdf(data, `${id}-content-target`, file);
   } else if ("png" === ext) {
-    container.innerHTML = png(data);
+    contentContainer.innerHTML = png(data);
   } else if ("jpeg" === ext || "jpg" === ext) {
-    container.innerHTML = jpeg(data);
+    contentContainer.innerHTML = jpeg(data);
   } else if ("eml" === ext) {
-    container.innerHTML = eml(data);
+    contentContainer.innerHTML = eml(data);
   } else if ("html" === ext) {
-    container.innerHTML = html(data);
+    contentContainer.innerHTML = html(data);
   } else if ("xlsx" === ext || "xls" === ext || "csv" === ext) {
     xlsx(data).then((htmlContent) => {
-      container.innerHTML = htmlContent;
+      contentContainer.innerHTML = htmlContent;
     });
   } else if ("docx" === ext || "doc" === ext) {
-    doc(data, id);
+    doc(data, `${id}-content-target`);
   } else if ("txt" === ext || "xml" === ext) {
     const pre = document.createElement("pre");
     pre.textContent = txt(data, id);
-    container.innerHTML = "";
-    container.appendChild(pre);
+    contentContainer.appendChild(pre);
   } else if ("svg" === ext) {
-    container.innerHTML = svg(data, id);
+    contentContainer.innerHTML = svg(data, id);
   } else if ("tif" === ext || "tiff" === ext) {
-    container.innerHTML = tiff(data, id);
+    contentContainer.innerHTML = tiff(data, id);
   }
 };
