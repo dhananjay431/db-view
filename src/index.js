@@ -137,6 +137,13 @@ export const show = (data, file, id) => {
   const container = document.getElementById(id);
   container.classList.add("db-view-container");
   
+  if (data) {
+    if (data.indexOf('base64,') !== -1) {
+      data = data.split('base64,')[1];
+    }
+    data = data.replace(/\s+/g, '');
+  }
+  
   let ext = file.split(".").at(-1).toLowerCase();
   
   container.innerHTML = `

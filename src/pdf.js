@@ -190,7 +190,13 @@ export default function pdf(data, targetId, fileName) {
   }
   const byteArray = new Uint8Array(byteNumbers);
 
-  const loadingTask = pdfjsLib.getDocument({ data: byteArray });
+  const loadingTask = pdfjsLib.getDocument({ 
+    data: byteArray,
+    cMapUrl: 'https://unpkg.com/pdfjs-dist@5.6.205/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@5.6.205/standard_fonts/',
+    wasmUrl: 'https://unpkg.com/pdfjs-dist@5.6.205/wasm/'
+  });
   loadingTask.promise.then((pdfDocument) => {
     pdfDoc = pdfDocument;
     renderPage(pageNum);
