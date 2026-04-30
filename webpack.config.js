@@ -1,4 +1,5 @@
 const path = require("path");
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
   mode: "production",
@@ -21,4 +22,25 @@ module.exports = {
       },
     ],
   },
+  plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          from: path.resolve(__dirname, "node_modules/pdfjs-dist/cmaps"),
+          to: "assets/pdfjs/cmaps",
+        },
+        {
+          from: path.resolve(
+            __dirname,
+            "node_modules/pdfjs-dist/standard_fonts",
+          ),
+          to: "assets/pdfjs/standard_fonts",
+        },
+        {
+          from: path.resolve(__dirname, "node_modules/pdfjs-dist/wasm"),
+          to: "assets/pdfjs/wasm",
+        },
+      ],
+    }),
+  ],
 };
