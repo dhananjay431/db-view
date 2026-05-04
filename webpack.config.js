@@ -19,6 +19,10 @@ module.exports = {
         test: /pdf\.worker\.min\.mjs$/,
         type: "asset/inline",
       },
+      {
+        test: /pdfjs-dist@5\.6\.205\/(cmaps|standard_fonts|wasm)\//,
+        type: "asset/inline",
+      },
     ],
   },
 };

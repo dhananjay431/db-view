@@ -121,9 +121,11 @@ const injectStyles = () => {
 };
 
 if (typeof window !== "undefined" && !window.zoomDbViewImage) {
-  window.zoomDbViewImage = function(button, factor) {
+  window.zoomDbViewImage = function (button, factor) {
     const wrapper = button.parentElement.nextElementSibling;
-    const target = wrapper.classList.contains("zoom-target") ? wrapper : wrapper.querySelector(".zoom-target") || wrapper.querySelector("img");
+    const target = wrapper.classList.contains("zoom-target")
+      ? wrapper
+      : wrapper.querySelector(".zoom-target") || wrapper.querySelector("img");
     if (!target) return;
     let scale = parseFloat(target.getAttribute("data-scale")) || 1;
     scale *= factor;
@@ -136,18 +138,20 @@ export const show = (data, file, id) => {
   injectStyles();
   const container = document.getElementById(id);
   container.classList.add("db-view-container");
-  
+
   if (data) {
-    if (data.indexOf('base64,') !== -1) {
-      data = data.split('base64,')[1];
+    if (data.indexOf("base64,") !== -1) {
+      data = data.split("base64,")[1];
     }
-    data = data.replace(/\s+/g, '');
+    data = data.replace(/\s+/g, "");
   }
-  
+
   let ext = file.split(".").at(-1).toLowerCase();
-  
+
   container.innerHTML = `
-    ${ext !== "pdf" ? `
+    ${
+      ext !== "pdf"
+        ? `
     <div class="zoom-controls">
       <button class="zoom-btn" title="Zoom In" onclick="window.zoomDbViewImage(this, 1.2)">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
@@ -155,16 +159,31 @@ export const show = (data, file, id) => {
       <button class="zoom-btn" title="Zoom Out" onclick="window.zoomDbViewImage(this, 1/1.2)">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
       </button>
+      ${
+        ext === "tif" || ext === "tiff"
+          ? `
+      <button class="zoom-btn" id="${id}-tiff-prev" type="button" title="Previous Page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <span id="${id}-tiff-page-info" style="font-weight:bold; align-self:center;">Page 1 / 1</span>
+      <button class="zoom-btn" id="${id}-tiff-next" type="button" title="Next Page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+      `
+          : ""
+      }
     </div>
-    ` : ''}
-    <div class="content-zoom-wrapper"${ext === 'pdf' ? ' style="padding: 0; border: none; background: transparent;"' : ''}>
+    `
+        : ""
+    }
+    <div class="content-zoom-wrapper"${ext === "pdf" ? ' style="padding: 0; border: none; background: transparent;"' : ""}>
       <div id="${id}-content-target" class="${ext !== "pdf" ? "zoom-target" : ""}" data-scale="1">
       </div>
     </div>
   `;
-  
+
   const contentContainer = document.getElementById(`${id}-content-target`);
-  
+
   if ("pdf" === ext) {
     pdf(data, `${id}-content-target`, file);
   } else if ("png" === ext) {
@@ -188,6 +207,40 @@ export const show = (data, file, id) => {
   } else if ("svg" === ext) {
     contentContainer.innerHTML = svg(data, id);
   } else if ("tif" === ext || "tiff" === ext) {
-    contentContainer.innerHTML = tiff(data, id);
+    contentContainer.innerHTML = "";
+    const tiffViewer = tiff(data, contentContainer);
+
+    const prevBtn = document.getElementById(`${id}-tiff-prev`);
+    const nextBtn = document.getElementById(`${id}-tiff-next`);
+    const pageInfo = document.getElementById(`${id}-tiff-page-info`);
+
+    const updateTiffControls = () => {
+      if (!pageInfo || !prevBtn || !nextBtn || !tiffViewer) return;
+      pageInfo.textContent = `Page ${tiffViewer.currentIndex + 1} / ${tiffViewer.pages}`;
+      prevBtn.disabled = tiffViewer.currentIndex === 0;
+      nextBtn.disabled = tiffViewer.currentIndex === tiffViewer.pages - 1;
+      prevBtn.style.opacity = prevBtn.disabled ? "0.5" : "1";
+      nextBtn.style.opacity = nextBtn.disabled ? "0.5" : "1";
+    };
+
+    if (prevBtn) {
+      prevBtn.addEventListener("click", () => {
+        if (tiffViewer.currentIndex > 0) {
+          tiffViewer.renderPage(tiffViewer.currentIndex - 1);
+          updateTiffControls();
+        }
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        if (tiffViewer.currentIndex < tiffViewer.pages - 1) {
+          tiffViewer.renderPage(tiffViewer.currentIndex + 1);
+          updateTiffControls();
+        }
+      });
+    }
+
+    updateTiffControls();
   }
 };

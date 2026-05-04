@@ -1,5 +1,12 @@
 import * as UTIF from "./assets/UTIF.min.js";
-export default function tiff(base64, id) {
+export default function tiff(base64, container) {
+  if (typeof container === "string") {
+    container = document.getElementById(container);
+  }
+  if (!container) {
+    throw new Error("TIFF target container not found.");
+  }
+
   try {
     // Remove data URL prefix if present
     base64 = base64.replace(/^data:image\/tiff;base64,/, "");
@@ -15,33 +22,57 @@ export default function tiff(base64, id) {
     }
 
     // Decode TIFF using UTIF.js
-    const ifds = UTIF.decode(buffer);
-    if (!ifds || ifds.length === 0) {
+    const pages = UTIF.decode(buffer);
+    if (!pages || pages.length === 0) {
       throw new Error("Invalid TIFF file or no pages found.");
     }
 
-    // Use the first page
-    const firstPage = ifds[0];
-    UTIF.decodeImage(buffer, firstPage);
-    const rgba = UTIF.toRGBA8(firstPage);
+    container.innerHTML = "";
 
-    // Create canvas dynamically
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+    const imageWrapper = document.createElement("div");
+    imageWrapper.style.textAlign = "center";
+    imageWrapper.style.overflow = "auto";
 
-    canvas.width = firstPage.width;
-    canvas.height = firstPage.height;
+    const img = document.createElement("img");
+    img.alt = "tiff image";
+    img.style.maxWidth = "100%";
+    img.style.height = "auto";
+    img.style.display = "block";
+    img.style.margin = "0 auto";
 
-    // Render image on canvas
-    const imageData = ctx.createImageData(firstPage.width, firstPage.height);
-    imageData.data.set(rgba);
-    ctx.putImageData(imageData, 0, 0);
+    imageWrapper.appendChild(img);
+    container.appendChild(imageWrapper);
 
-    // Convert canvas to data URL and return as HTML img tag
-    const dataURL = canvas.toDataURL("image/png");
-    return `<img src="${dataURL}" alt="tiff image" />`;
+    let currentIndex = 0;
+
+    const renderPage = (index) => {
+      const page = pages[index];
+      UTIF.decodeImage(buffer, page);
+      const rgba = UTIF.toRGBA8(page);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = page.width;
+      canvas.height = page.height;
+      const ctx = canvas.getContext("2d");
+      const imageData = ctx.createImageData(page.width, page.height);
+      imageData.data.set(rgba);
+      ctx.putImageData(imageData, 0, 0);
+
+      img.src = canvas.toDataURL("image/png");
+      currentIndex = index;
+    };
+
+    renderPage(currentIndex);
+
+    return {
+      pages: pages.length,
+      get currentIndex() {
+        return currentIndex;
+      },
+      renderPage,
+    };
   } catch (error) {
     console.error("Error rendering TIFF:", error);
-    throw new Error("Failed to load TIFF image.");
+    container.innerHTML = `<div style="color:red; padding:20px;">Failed to load TIFF image.</div>`;
   }
 }
