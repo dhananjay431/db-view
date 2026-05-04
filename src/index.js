@@ -185,7 +185,16 @@ export const show = (data, file, id) => {
   const contentContainer = document.getElementById(`${id}-content-target`);
 
   if ("pdf" === ext) {
-    pdf(data, `${id}-content-target`, file);
+    document.getElementById(id).innerHTML = "";
+    const iframe = document.createElement("iframe");
+    iframe.id = "pdfFrame";
+    iframe.width = "100%";
+    // iframe.height = '600px';
+    iframe.style.border = "none";
+    iframe.style.height = "100vh";
+    iframe.src = pdf(data);
+    document.getElementById(id).appendChild(iframe);
+    // document.getElementById(id).innerHTML = pdf(data);
   } else if ("png" === ext) {
     contentContainer.innerHTML = png(data);
   } else if ("jpeg" === ext || "jpg" === ext) {
