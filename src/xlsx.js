@@ -265,12 +265,14 @@ function injectImages(tableHtml, images) {
 }
 
 function optimizeSheetRef(ws) {
-  let minR = Infinity, maxR = -1;
-  let minC = Infinity, maxC = -1;
+  let minR = Infinity,
+    maxR = -1;
+  let minC = Infinity,
+    maxC = -1;
   let hasData = false;
-  
+
   for (const key in ws) {
-    if (key.startsWith('!')) continue;
+    if (key.startsWith("!")) continue;
     const cell = XLSX.utils.decode_cell(key);
     hasData = true;
     if (cell.r < minR) minR = cell.r;
@@ -278,12 +280,172 @@ function optimizeSheetRef(ws) {
     if (cell.c < minC) minC = cell.c;
     if (cell.c > maxC) maxC = cell.c;
   }
-  
+
   if (hasData) {
-    ws['!ref'] = XLSX.utils.encode_range({s: {r: minR, c: minC}, e: {r: maxR, c: maxC}});
+    ws["!ref"] = XLSX.utils.encode_range({
+      s: { r: minR, c: minC },
+      e: { r: maxR, c: maxC },
+    });
   } else {
-    ws['!ref'] = 'A1:A1';
+    ws["!ref"] = "A1:A1";
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function getDisplayValue(cell) {
+  if (!cell) return "";
+  if (cell.w !== undefined) return cell.w;
+  return XLSX.utils.format_cell(cell);
+}
+
+function getColumnWidth(ws, colIndex) {
+  const column = ws["!cols"]?.[colIndex];
+  const width =
+    column?.wpx || (column?.wch ? Math.max(64, column.wch * 8) : 112);
+  return Math.min(Math.max(width, 64), 280);
+}
+
+function getRowHeight(ws, rowIndex) {
+  const row = ws["!rows"]?.[rowIndex];
+  return row?.hpx ? Math.min(Math.max(row.hpx, 28), 140) : 32;
+}
+
+function buildMergeMap(ws) {
+  const covered = new Set();
+  const origins = new Map();
+
+  for (const merge of ws["!merges"] || []) {
+    const rows = merge.e.r - merge.s.r + 1;
+    const cols = merge.e.c - merge.s.c + 1;
+    const origin = `${merge.s.r}:${merge.s.c}`;
+    origins.set(origin, { rows, cols });
+
+    for (let r = merge.s.r; r <= merge.e.r; r++) {
+      for (let c = merge.s.c; c <= merge.e.c; c++) {
+        if (r !== merge.s.r || c !== merge.s.c) covered.add(`${r}:${c}`);
+      }
+    }
+  }
+
+  return { covered, origins };
+}
+
+function getUsedRows(ws, range) {
+  const rows = new Set();
+
+  for (const key in ws) {
+    if (key.startsWith("!")) continue;
+    const cell = ws[key];
+    if (
+      !cell ||
+      (cell.v === undefined && cell.f === undefined && cell.w === undefined)
+    )
+      continue;
+
+    const address = XLSX.utils.decode_cell(key);
+    if (address.r >= range.s.r && address.r <= range.e.r) rows.add(address.r);
+  }
+
+  for (const merge of ws["!merges"] || []) {
+    if (
+      merge.e.r >= range.s.r &&
+      merge.s.r <= range.e.r &&
+      merge.e.c >= range.s.c &&
+      merge.s.c <= range.e.c
+    ) {
+      rows.add(merge.s.r);
+    }
+  }
+
+  if (rows.size === 0) rows.add(range.s.r);
+  return Array.from(rows).sort((a, b) => a - b);
+}
+
+function cellClass(cell) {
+  if (!cell) return "xlsx-cell-empty";
+  if (cell.t === "n" || cell.t === "d") return "xlsx-cell-number";
+  if (cell.t === "b") return "xlsx-cell-boolean";
+  return "xlsx-cell-text";
+}
+
+function worksheetToGridHtml(ws) {
+  optimizeSheetRef(ws);
+
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
+  const mergeMap = buildMergeMap(ws);
+  const columnCount = range.e.c - range.s.c + 1;
+  const physicalRowCount = range.e.r - range.s.r + 1;
+  const rowsToRender = physicalRowCount > 5000 ? getUsedRows(ws, range) : null;
+  const rowCount = rowsToRender ? rowsToRender.length : physicalRowCount;
+  const skippedRows = rowsToRender ? physicalRowCount - rowsToRender.length : 0;
+
+  let colgroup = '<col style="width:48px" />';
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    colgroup += `<col style="width:${getColumnWidth(ws, c)}px" />`;
+  }
+
+  let thead = '<thead><tr><th class="xlsx-corner"></th>';
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    thead += `<th class="xlsx-col-header">${XLSX.utils.encode_col(c)}</th>`;
+  }
+  thead += "</tr></thead>";
+
+  let tbody = "<tbody>";
+  const renderRows =
+    rowsToRender ||
+    Array.from({ length: physicalRowCount }, (_, index) => range.s.r + index);
+
+  for (let rowIndex = 0; rowIndex < renderRows.length; rowIndex++) {
+    const r = renderRows[rowIndex];
+    const previous = renderRows[rowIndex - 1];
+    if (previous !== undefined && r > previous + 1) {
+      tbody += `<tr class="xlsx-gap-row"><th class="xlsx-row-header">...</th><td colspan="${columnCount}">${r - previous - 1} blank rows hidden</td></tr>`;
+    }
+
+    tbody += `<tr style="height:${getRowHeight(ws, r)}px"><th class="xlsx-row-header">${r + 1}</th>`;
+
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const key = `${r}:${c}`;
+      if (mergeMap.covered.has(key)) continue;
+
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[cellRef];
+      const merge = mergeMap.origins.get(key);
+      const attrs = [
+        `id="sjs-${cellRef}"`,
+        `data-cell="${cellRef}"`,
+        `class="${cellClass(cell)}"`,
+      ];
+
+      if (merge?.rows > 1) attrs.push(`rowspan="${merge.rows}"`);
+      if (merge?.cols > 1) attrs.push(`colspan="${merge.cols}"`);
+      if (cell?.f)
+        attrs.push(`title="${escapeHtml(`${cellRef}: =${cell.f}`)}"`);
+
+      tbody += `<td ${attrs.join(" ")}>${escapeHtml(getDisplayValue(cell))}</td>`;
+    }
+
+    tbody += "</tr>";
+  }
+  tbody += "</tbody>";
+
+  return `
+    <div class="xlsx-grid-wrap" style="--xlsx-cols:${columnCount}; --xlsx-rows:${rowCount};">
+      ${
+        skippedRows > 0
+          ? `<div class="xlsx-grid-note">${skippedRows} blank rows hidden from this preview.</div>`
+          : ""
+      }
+      <table class="xlsx-grid-table">${colgroup}${thead}${tbody}</table>
+    </div>
+  `;
 }
 
 export default async function xlsx(b64Data) {
@@ -299,29 +461,227 @@ export default async function xlsx(b64Data) {
 
   const sheetNames = workbook.SheetNames;
 
-  // Single sheet — no tabs needed
-  if (sheetNames.length <= 1) {
-    const worksheet = workbook.Sheets[sheetNames[0]];
-    optimizeSheetRef(worksheet);
-    let tableHtml = XLSX.utils.sheet_to_html(worksheet);
-    return injectImages(tableHtml, images);
-  }
-
-  // Multiple sheets — build tab UI
-  const tabStyles = `
+  const styles = `
     <style>
-      .xlsx-tabs { display:flex; border-bottom:2px solid #dee2e6; margin-bottom:0; padding:0; gap:2px; }
-      .xlsx-tab { padding:8px 16px; cursor:pointer; border:1px solid transparent;
-        border-bottom:none; border-radius:4px 4px 0 0; background:#f8f9fa; color:#495057;
-        font-size:14px; font-family:sans-serif; user-select:none; white-space:nowrap; }
-      .xlsx-tab:hover { background:#e9ecef; }
-      .xlsx-tab.active { background:#fff; color:#212529; border-color:#dee2e6;
-        font-weight:600; position:relative; top:1px; }
-      .xlsx-sheet { display:none; }
-      .xlsx-sheet.active { display:block; }
+      .xlsx-wrapper {
+        width: 100%;
+        min-width: 720px;
+        height: calc(100vh - 92px);
+        min-height: 520px;
+        overflow: hidden;
+        background: #f5f7fb;
+        border: 1px solid #d8dee9;
+        border-radius: 8px;
+        color: #1f2937;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .xlsx-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 56px;
+        padding: 10px 12px;
+        background: #ffffff;
+        border-bottom: 1px solid #d8dee9;
+      }
+      .xlsx-title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .xlsx-title strong {
+        font-size: 15px;
+        line-height: 20px;
+        font-weight: 650;
+      }
+      .xlsx-title span {
+        color: #6b7280;
+        font-size: 12px;
+        line-height: 16px;
+      }
+      .xlsx-sheet-picker {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 0 0 auto;
+      }
+      .xlsx-sheet-picker label {
+        color: #4b5563;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .xlsx-sheet-picker select {
+        min-width: 180px;
+        max-width: 280px;
+        height: 34px;
+        border: 1px solid #c7d0dc;
+        border-radius: 6px;
+        background: #fff;
+        color: #111827;
+        font: inherit;
+        font-size: 13px;
+        padding: 0 32px 0 10px;
+      }
+      .xlsx-sheet {
+        display: none;
+        height: calc(100% - 57px);
+      }
+      .xlsx-sheet.active {
+        display: block;
+      }
+      .xlsx-grid-wrap {
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background: #ffffff;
+      }
+      .xlsx-grid-note {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        padding: 7px 10px;
+        background: #fff7d6;
+        border-bottom: 1px solid #ead38b;
+        color: #6f5600;
+        font-size: 12px;
+        text-align: left;
+      }
+      .xlsx-grid-table {
+        width: max-content !important;
+        min-width: 100%;
+        border-collapse: separate !important;
+        border-spacing: 0;
+        table-layout: fixed;
+        background: #ffffff;
+        font-size: 13px !important;
+      }
+      .xlsx-grid-table th,
+      .xlsx-grid-table td {
+        box-sizing: border-box;
+        border: 0 !important;
+        border-right: 1px solid #e1e6ef !important;
+        border-bottom: 1px solid #e1e6ef !important;
+        padding: 6px 8px !important;
+        height: 32px;
+        max-width: 280px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
+      .xlsx-grid-table tr:first-child {
+        background: transparent !important;
+        color: inherit !important;
+        font-weight: inherit !important;
+      }
+      .xlsx-corner,
+      .xlsx-col-header,
+      .xlsx-row-header {
+        background: #eef2f7 !important;
+        color: #4b5563 !important;
+        font-weight: 600 !important;
+        text-align: center !important;
+        user-select: none;
+      }
+      .xlsx-corner {
+        position: sticky;
+        top: 0;
+        left: 0;
+        z-index: 4;
+      }
+      .xlsx-col-header {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+      }
+      .xlsx-row-header {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        width: 48px;
+      }
+      .xlsx-cell-number,
+      .xlsx-cell-boolean {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .xlsx-cell-text {
+        text-align: left;
+      }
+      .xlsx-cell-empty {
+        background: #fff;
+      }
+      .xlsx-grid-table td:hover {
+        outline: 2px solid #2f80ed;
+        outline-offset: -2px;
+      }
+      .xlsx-gap-row td,
+      .xlsx-gap-row th {
+        height: 26px !important;
+        background: #fbfcfe !important;
+        color: #7b8494 !important;
+        font-size: 12px;
+        font-style: italic;
+        text-align: center !important;
+      }
+      .xlsx-grid-table img {
+        max-width: 180px !important;
+        max-height: 140px;
+        margin: 4px 0 0 !important;
+        object-fit: contain;
+      }
+      .xlsx-empty {
+        display: grid;
+        place-items: center;
+        height: calc(100% - 57px);
+        color: #6b7280;
+        font-size: 14px;
+      }
+      @media (max-width: 760px) {
+        .xlsx-wrapper {
+          min-width: 0;
+          height: calc(100vh - 84px);
+          border-radius: 0;
+        }
+        .xlsx-toolbar {
+          align-items: stretch;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .xlsx-sheet {
+          height: calc(100% - 105px);
+        }
+        .xlsx-sheet-picker,
+        .xlsx-sheet-picker select {
+          width: 100%;
+        }
+      }
     </style>`;
 
-  let tabBar = '<div class="xlsx-tabs">';
+  if (sheetNames.length === 0) {
+    return `${styles}<div class="xlsx-wrapper"><div class="xlsx-toolbar"><div class="xlsx-title"><strong>SheetJS In-Browser Live Grid</strong><span>No worksheets found</span></div></div><div class="xlsx-empty">No worksheet data to preview.</div></div>`;
+  }
+
+  const options = sheetNames
+    .map(
+      (name, index) =>
+        `<option value="xlsx-sheet-${index}">${escapeHtml(name)}</option>`,
+    )
+    .join("");
+
+  const toolbar = `
+    <div class="xlsx-toolbar">
+      
+      <div class="xlsx-sheet-picker">
+        <label for="xlsx-sheet-select">Choose a worksheet:</label>
+        <select id="xlsx-sheet-select" onchange="var w=this.closest('.xlsx-wrapper');w.querySelectorAll('.xlsx-sheet').forEach(function(s){s.classList.remove('active')});var sheet=w.querySelector('#'+this.value);if(sheet)sheet.classList.add('active');">
+          ${options}
+        </select>
+      </div>
+    </div>`;
+
   let sheets = "";
 
   for (let i = 0; i < sheetNames.length; i++) {
@@ -329,17 +689,12 @@ export default async function xlsx(b64Data) {
     const activeClass = i === 0 ? " active" : "";
     const safeId = "xlsx-sheet-" + i;
 
-    tabBar += `<div class="xlsx-tab${activeClass}" data-sheet="${safeId}" onclick="var w=this.closest('.xlsx-wrapper');w.querySelectorAll('.xlsx-tab').forEach(function(t){t.classList.remove('active')});w.querySelectorAll('.xlsx-sheet').forEach(function(p){p.classList.remove('active')});this.classList.add('active');w.querySelector('#'+this.getAttribute('data-sheet')).classList.add('active')">${name.replace(/</g, "&lt;")}</div>`;
-
     const worksheet = workbook.Sheets[name];
-    optimizeSheetRef(worksheet);
-    let tableHtml = XLSX.utils.sheet_to_html(worksheet);
+    let tableHtml = worksheetToGridHtml(worksheet);
     tableHtml = injectImages(tableHtml, images);
 
     sheets += `<div id="${safeId}" class="xlsx-sheet${activeClass}">${tableHtml}</div>`;
   }
 
-  tabBar += "</div>";
-
-  return tabStyles + '<div class="xlsx-wrapper">' + tabBar + sheets + "</div>";
+  return styles + '<div class="xlsx-wrapper">' + toolbar + sheets + "</div>";
 }
