@@ -7,7 +7,7 @@ module.exports = {
     path: path.resolve(__dirname, "dist"),
     filename: "db-view.js",
     // The name of the library
-    library: "db",
+    // library: "db",
     // Allows the library to be used in different environments (Node, Browser, etc.)
     libraryTarget: "umd",
     // Fixes 'window is not defined' issues in Node environments
