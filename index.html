@@ -1,707 +1,801 @@
 <!doctype html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DB View - File Viewer</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f2f5;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .app-header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .app-header h1 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1a1a2e;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .app-header h1 svg {
-      width: 32px;
-      height: 32px;
-      color: #4361ee;
-    }
-
-    .app-header p {
-      color: #6c757d;
-      font-size: 14px;
-      margin-top: 6px;
-    }
-
-    /* ===== Upload Zone ===== */
-    .upload-zone-wrapper {
-      max-width: 720px;
-      margin: 0 auto 30px;
-    }
-
-    .upload-zone {
-      position: relative;
-      border: 2px dashed #c5cae0;
-      border-radius: 16px;
-      padding: 50px 30px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      background: #ffffff;
-      overflow: hidden;
-    }
-
-    .upload-zone::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(67, 97, 238, 0.03), rgba(114, 9, 183, 0.03));
-      transition: opacity 0.3s;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .upload-zone:hover {
-      border-color: #4361ee;
-      box-shadow: 0 4px 20px rgba(67, 97, 238, 0.1);
-    }
-
-    .upload-zone:hover::before {
-      opacity: 1;
-    }
-
-    .upload-zone.drag-over {
-      border-color: #4361ee;
-      background: #eef0ff;
-      box-shadow: 0 0 30px rgba(67, 97, 238, 0.15);
-      transform: scale(1.01);
-    }
-
-    .upload-zone.drag-over::before {
-      opacity: 1;
-    }
-
-    .upload-zone.has-file {
-      border-style: solid;
-      border-color: #10b981;
-      background: #f0fdf4;
-    }
-
-    .upload-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #4361ee, #7209b7);
-      margin-bottom: 20px;
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-
-    .upload-zone:hover .upload-icon {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 25px rgba(67, 97, 238, 0.3);
-    }
-
-    .upload-zone.drag-over .upload-icon {
-      transform: scale(1.1);
-      box-shadow: 0 8px 30px rgba(67, 97, 238, 0.4);
-    }
-
-    .upload-icon svg {
-      width: 36px;
-      height: 36px;
-      color: white;
-    }
-
-    .upload-title {
-      font-size: 20px;
-      font-weight: 600;
-      color: #1a1a2e;
-      margin-bottom: 8px;
-    }
-
-    .upload-subtitle {
-      font-size: 14px;
-      color: #6c757d;
-      margin-bottom: 18px;
-    }
-
-    .upload-subtitle span {
-      color: #4361ee;
-      font-weight: 600;
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
-
-    .upload-formats {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .format-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      background: #f0f2f5;
-      color: #4a4a6a;
-      border: 1px solid #e0e3eb;
-    }
-
-    .hidden-input {
-      display: none;
-    }
-
-    /* ===== File Info Card ===== */
-    .file-info-card {
-      display: none;
-      max-width: 720px;
-      margin: 0 auto 20px;
-      background: white;
-      border-radius: 12px;
-      padding: 16px 20px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-      animation: slideDown 0.35s ease;
-    }
-
-    .file-info-card.visible {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .upload-zone-wrapper.hidden {
-      display: none;
-    }
-
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DB View - File Viewer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .file-type-icon {
-      flex-shrink: 0;
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      color: white;
-      letter-spacing: 0.5px;
-    }
-
-    .file-type-icon.pdf {
-      background: #ef4444;
-    }
-
-    .file-type-icon.xlsx,
-    .file-type-icon.xls,
-    .file-type-icon.csv {
-      background: #10b981;
-    }
-
-    .file-type-icon.docx,
-    .file-type-icon.doc {
-      background: #3b82f6;
-    }
-
-    .file-type-icon.png {
-      background: #8b5cf6;
-    }
-
-    .file-type-icon.jpeg,
-    .file-type-icon.jpg {
-      background: #f59e0b;
-    }
-
-    .file-type-icon.svg {
-      background: #f97316;
-    }
-
-    .file-type-icon.tif,
-    .file-type-icon.tiff {
-      background: #6366f1;
-    }
-
-    .file-type-icon.eml {
-      background: #ec4899;
-    }
-
-    .file-type-icon.html {
-      background: #14b8a6;
-    }
-
-    .file-type-icon.txt,
-    .file-type-icon.xml {
-      background: #64748b;
-    }
-
-    .file-type-icon.default {
-      background: #94a3b8;
-    }
-
-    .file-details {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .file-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: #1a1a2e;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .file-meta {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-top: 3px;
-    }
-
-    .file-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .btn-upload-new {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      background: white;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: #4361ee;
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
-    .btn-upload-new:hover {
-      background: #eef0ff;
-      border-color: #4361ee;
-    }
-
-    .btn-upload-new svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    .btn-remove {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      background: white;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: #94a3b8;
-    }
-
-    .btn-remove:hover {
-      background: #fef2f2;
-      border-color: #fca5a5;
-      color: #ef4444;
-    }
-
-    .btn-remove svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    /* ===== Loading Spinner ===== */
-    .loading-overlay {
-      display: none;
-      position: absolute;
-      inset: 0;
-      background: rgba(255, 255, 255, 0.85);
-      z-index: 10;
-      align-items: center;
-      justify-content: center;
-      border-radius: 16px;
-    }
-
-    .loading-overlay.active {
-      display: flex;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #e5e7eb;
-      border-top-color: #4361ee;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* ===== Viewer Container ===== */
-    .viewer-section {
-      max-width: 100%;
-      margin: 0 auto;
-    }
-
-    .table-container {
-      overflow-x: auto;
-      margin: 20px 0;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      background-color: white;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      font-size: 14px;
-    }
-
-    table tr:first-child {
-      background-color: #ccc;
-      color: #000;
-      font-weight: bold;
-      text-align: left;
-    }
-
-    table td {
-      padding: 12px 15px;
-      border: 1px solid #e0e0e0;
-    }
-
-    table tr:nth-child(even) {
-      background-color: #f8f9fa;
-    }
-
-    /* ===== Responsive ===== */
-    @media (max-width: 600px) {
       body {
-        padding: 12px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f0f2f5;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .app-header {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .app-header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1a1a2e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .app-header h1 svg {
+        width: 32px;
+        height: 32px;
+        color: #4361ee;
+      }
+
+      .app-header p {
+        color: #6c757d;
+        font-size: 14px;
+        margin-top: 6px;
+      }
+
+      .docs-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+        padding: 9px 16px;
+        border-radius: 999px;
+        background: #ffffff;
+        color: #4361ee;
+        border: 1px solid #d9ddff;
+        box-shadow: 0 3px 12px rgba(67, 97, 238, 0.12);
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.2s ease;
+      }
+
+      .docs-link:hover {
+        background: #eef0ff;
+        border-color: #4361ee;
+        transform: translateY(-1px);
+      }
+
+      .docs-link svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* ===== Upload Zone ===== */
+      .upload-zone-wrapper {
+        max-width: 720px;
+        margin: 0 auto 30px;
       }
 
       .upload-zone {
-        padding: 35px 20px;
+        position: relative;
+        border: 2px dashed #c5cae0;
+        border-radius: 16px;
+        padding: 50px 30px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      .upload-zone::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(67, 97, 238, 0.03),
+          rgba(114, 9, 183, 0.03)
+        );
+        transition: opacity 0.3s;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .upload-zone:hover {
+        border-color: #4361ee;
+        box-shadow: 0 4px 20px rgba(67, 97, 238, 0.1);
+      }
+
+      .upload-zone:hover::before {
+        opacity: 1;
+      }
+
+      .upload-zone.drag-over {
+        border-color: #4361ee;
+        background: #eef0ff;
+        box-shadow: 0 0 30px rgba(67, 97, 238, 0.15);
+        transform: scale(1.01);
+      }
+
+      .upload-zone.drag-over::before {
+        opacity: 1;
+      }
+
+      .upload-zone.has-file {
+        border-style: solid;
+        border-color: #10b981;
+        background: #f0fdf4;
       }
 
       .upload-icon {
-        width: 64px;
-        height: 64px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4361ee, #7209b7);
+        margin-bottom: 20px;
+        transition:
+          transform 0.3s,
+          box-shadow 0.3s;
+      }
+
+      .upload-zone:hover .upload-icon {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(67, 97, 238, 0.3);
+      }
+
+      .upload-zone.drag-over .upload-icon {
+        transform: scale(1.1);
+        box-shadow: 0 8px 30px rgba(67, 97, 238, 0.4);
       }
 
       .upload-icon svg {
-        width: 28px;
-        height: 28px;
+        width: 36px;
+        height: 36px;
+        color: white;
       }
 
       .upload-title {
-        font-size: 17px;
+        font-size: 20px;
+        font-weight: 600;
+        color: #1a1a2e;
+        margin-bottom: 8px;
+      }
+
+      .upload-subtitle {
+        font-size: 14px;
+        color: #6c757d;
+        margin-bottom: 18px;
+      }
+
+      .upload-subtitle span {
+        color: #4361ee;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .upload-formats {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+      }
+
+      .format-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: #f0f2f5;
+        color: #4a4a6a;
+        border: 1px solid #e0e3eb;
+      }
+
+      .hidden-input {
+        display: none;
+      }
+
+      /* ===== File Info Card ===== */
+      .file-info-card {
+        display: none;
+        max-width: 720px;
+        margin: 0 auto 20px;
+        background: white;
+        border-radius: 12px;
+        padding: 16px 20px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        animation: slideDown 0.35s ease;
       }
 
       .file-info-card.visible {
-        flex-wrap: wrap;
+        display: flex;
+        align-items: center;
+        gap: 14px;
       }
-    }
-  </style>
-</head>
 
-<body>
-  <div class="app-header">
-    <h1>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-        <polyline points="14 2 14 8 20 8"></polyline>
-      </svg>
-      DB View
-    </h1>
-    <p>Upload a file to preview — supports PDF, XLSX, DOCX, images, and more</p>
-  </div>
+      .upload-zone-wrapper.hidden {
+        display: none;
+      }
 
-  <!-- Upload Zone -->
-  <div class="upload-zone-wrapper">
-    <div class="upload-zone" id="uploadZone">
-      <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-      </div>
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
 
-      <div class="upload-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .file-type-icon {
+        flex-shrink: 0;
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: white;
+        letter-spacing: 0.5px;
+      }
+
+      .file-type-icon.pdf {
+        background: #ef4444;
+      }
+
+      .file-type-icon.xlsx,
+      .file-type-icon.xls,
+      .file-type-icon.csv {
+        background: #10b981;
+      }
+
+      .file-type-icon.docx,
+      .file-type-icon.doc {
+        background: #3b82f6;
+      }
+
+      .file-type-icon.png {
+        background: #8b5cf6;
+      }
+
+      .file-type-icon.jpeg,
+      .file-type-icon.jpg {
+        background: #f59e0b;
+      }
+
+      .file-type-icon.svg {
+        background: #f97316;
+      }
+
+      .file-type-icon.tif,
+      .file-type-icon.tiff {
+        background: #6366f1;
+      }
+
+      .file-type-icon.eml {
+        background: #ec4899;
+      }
+
+      .file-type-icon.html {
+        background: #14b8a6;
+      }
+
+      .file-type-icon.txt,
+      .file-type-icon.xml {
+        background: #64748b;
+      }
+
+      .file-type-icon.default {
+        background: #94a3b8;
+      }
+
+      .file-details {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .file-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1a1a2e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .file-meta {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 3px;
+      }
+
+      .file-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .btn-upload-new {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #4361ee;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .btn-upload-new:hover {
+        background: #eef0ff;
+        border-color: #4361ee;
+      }
+
+      .btn-upload-new svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .btn-remove {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #94a3b8;
+      }
+
+      .btn-remove:hover {
+        background: #fef2f2;
+        border-color: #fca5a5;
+        color: #ef4444;
+      }
+
+      .btn-remove svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      /* ===== Loading Spinner ===== */
+      .loading-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.85);
+        z-index: 10;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+      }
+
+      .loading-overlay.active {
+        display: flex;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #4361ee;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ===== Viewer Container ===== */
+      .viewer-section {
+        max-width: 100%;
+        margin: 0 auto;
+      }
+
+      .table-container {
+        overflow-x: auto;
+        margin: 20px 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background-color: white;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 14px;
+      }
+
+      table tr:first-child {
+        background-color: #ccc;
+        color: #000;
+        font-weight: bold;
+        text-align: left;
+      }
+
+      table td {
+        padding: 12px 15px;
+        border: 1px solid #e0e0e0;
+      }
+
+      table tr:nth-child(even) {
+        background-color: #f8f9fa;
+      }
+
+      /* ===== Responsive ===== */
+      @media (max-width: 600px) {
+        body {
+          padding: 12px;
+        }
+
+        .upload-zone {
+          padding: 35px 20px;
+        }
+
+        .upload-icon {
+          width: 64px;
+          height: 64px;
+        }
+
+        .upload-icon svg {
+          width: 28px;
+          height: 28px;
+        }
+
+        .upload-title {
+          font-size: 17px;
+        }
+
+        .file-info-card.visible {
+          flex-wrap: wrap;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app-header">
+      <h1>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+          ></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
         </svg>
-      </div>
-
-      <div class="upload-title">Drag & Drop your file here</div>
-      <div class="upload-subtitle">or <span>browse files</span> from your computer</div>
-
-      <div class="upload-formats">
-        <span class="format-badge">PDF</span>
-        <span class="format-badge">XLSX</span>
-        <span class="format-badge">DOCX</span>
-        <span class="format-badge">PNG</span>
-        <span class="format-badge">JPEG</span>
-        <span class="format-badge">SVG</span>
-        <span class="format-badge">TIFF</span>
-        <span class="format-badge">EML</span>
-        <span class="format-badge">HTML</span>
-        <span class="format-badge">TXT</span>
-        <span class="format-badge">XML</span>
-        <span class="format-badge">CSV</span>
-      </div>
-
-      <input type="file" class="hidden-input" id="fileInput" />
-    </div>
-  </div>
-
-  <!-- File Info Card (shown after upload) -->
-  <div class="file-info-card" id="fileInfoCard">
-    <div class="file-type-icon" id="fileTypeIcon">PDF</div>
-    <div class="file-details">
-      <div class="file-name" id="fileName">document.pdf</div>
-      <div class="file-meta" id="fileMeta">2.4 MB • PDF Document</div>
-    </div>
-    <div class="file-actions">
-      <button class="btn-upload-new" id="btnUploadNew" title="Upload a new file">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
+        DB View
+      </h1>
+      <p>
+        Upload a file to preview — supports PDF, XLSX, DOCX, images, and more
+      </p>
+      <a
+        class="docs-link"
+        href="readme.html"
+        rel="noopener noreferrer"
+        title="Open db-view documentation"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path
+            d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+          ></path>
         </svg>
-        Upload New
-      </button>
-      <button class="btn-remove" id="btnRemove" title="Remove file">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
+        View Library Documentation
+      </a>
     </div>
-  </div>
 
-  <!-- Viewer (appears after file upload) -->
-  <div class="viewer-section" id="viewerSection">
-    <div id="db-view"></div>
-  </div>
+    <!-- Upload Zone -->
+    <div class="upload-zone-wrapper">
+      <div class="upload-zone" id="uploadZone">
+        <div class="loading-overlay" id="loadingOverlay">
+          <div class="spinner"></div>
+        </div>
 
-  <script>
-    const fileToBase64 = (file) => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = (error) => reject(error);
-      });
-    };
+        <div class="upload-icon">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
 
-    const formatFileSize = (bytes) => {
-      if (bytes === 0) return "0 Bytes";
-      const k = 1024;
-      const sizes = ["Bytes", "KB", "MB", "GB"];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-    };
+        <div class="upload-title">Drag & Drop your file here</div>
+        <div class="upload-subtitle">
+          or <span>browse files</span> from your computer
+        </div>
 
-    const fileTypeLabels = {
-      pdf: "PDF Document",
-      xlsx: "Excel Spreadsheet",
-      xls: "Excel Spreadsheet",
-      csv: "CSV File",
-      docx: "Word Document",
-      doc: "Word Document",
-      png: "PNG Image",
-      jpeg: "JPEG Image",
-      jpg: "JPEG Image",
-      svg: "SVG Image",
-      tif: "TIFF Image",
-      tiff: "TIFF Image",
-      eml: "Email Message",
-      html: "HTML Document",
-      txt: "Text File",
-      xml: "XML File",
-    };
+        <div class="upload-formats">
+          <span class="format-badge">PDF</span>
+          <span class="format-badge">XLSX</span>
+          <span class="format-badge">DOCX</span>
+          <span class="format-badge">PNG</span>
+          <span class="format-badge">JPEG</span>
+          <span class="format-badge">SVG</span>
+          <span class="format-badge">TIFF</span>
+          <span class="format-badge">EML</span>
+          <span class="format-badge">HTML</span>
+          <span class="format-badge">TXT</span>
+          <span class="format-badge">XML</span>
+          <span class="format-badge">CSV</span>
+        </div>
 
-    const uploadZone = document.getElementById("uploadZone");
-    const uploadZoneWrapper = document.querySelector(".upload-zone-wrapper");
-    const fileInput = document.getElementById("fileInput");
-    const fileInfoCard = document.getElementById("fileInfoCard");
-    const fileTypeIcon = document.getElementById("fileTypeIcon");
-    const fileName = document.getElementById("fileName");
-    const fileMeta = document.getElementById("fileMeta");
-    const btnRemove = document.getElementById("btnRemove");
-    const btnUploadNew = document.getElementById("btnUploadNew");
-    const loadingOverlay = document.getElementById("loadingOverlay");
-    const viewerSection = document.getElementById("viewerSection");
+        <input type="file" class="hidden-input" id="fileInput" />
+      </div>
+    </div>
 
-    let currentFile = null;
+    <!-- File Info Card (shown after upload) -->
+    <div class="file-info-card" id="fileInfoCard">
+      <div class="file-type-icon" id="fileTypeIcon">PDF</div>
+      <div class="file-details">
+        <div class="file-name" id="fileName">document.pdf</div>
+        <div class="file-meta" id="fileMeta">2.4 MB • PDF Document</div>
+      </div>
+      <div class="file-actions">
+        <button
+          class="btn-upload-new"
+          id="btnUploadNew"
+          title="Upload a new file"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          Upload New
+        </button>
+        <button class="btn-remove" id="btnRemove" title="Remove file">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
 
-    // ===== Click to browse =====
-    uploadZone.addEventListener("click", (e) => {
-      if (e.target === fileInput) return;
-      fileInput.click();
-    });
+    <!-- Viewer (appears after file upload) -->
+    <div class="viewer-section" id="viewerSection">
+      <div id="db-view"></div>
+    </div>
 
-    // ===== Drag & Drop =====
-    uploadZone.addEventListener("dragenter", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      uploadZone.classList.add("drag-over");
-    });
-
-    uploadZone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      uploadZone.classList.add("drag-over");
-    });
-
-    uploadZone.addEventListener("dragleave", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // Only remove if leaving the zone itself (not a child)
-      if (!uploadZone.contains(e.relatedTarget)) {
-        uploadZone.classList.remove("drag-over");
-      }
-    });
-
-    uploadZone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      uploadZone.classList.remove("drag-over");
-
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        handleFile(files[0]);
-      }
-    });
-
-    // ===== File input change =====
-    fileInput.addEventListener("change", (e) => {
-      if (e.target.files.length > 0) {
-        handleFile(e.target.files[0]);
-      }
-    });
-
-    // ===== Upload New =====
-    btnUploadNew.addEventListener("click", (e) => {
-      e.stopPropagation();
-      showUploadZone();
-    });
-
-    // ===== Remove file =====
-    btnRemove.addEventListener("click", (e) => {
-      e.stopPropagation();
-      resetUpload();
-    });
-
-    function showUploadZone() {
-      uploadZoneWrapper.classList.remove("hidden");
-      fileInfoCard.classList.remove("visible");
-      viewerSection.style.display = "none";
-      currentFile = null;
-      fileInput.value = "";
-      uploadZone.classList.remove("has-file");
-      document.getElementById("db-view").innerHTML = "";
-    }
-
-    function resetUpload() {
-      currentFile = null;
-      fileInput.value = "";
-      uploadZone.classList.remove("has-file");
-      fileInfoCard.classList.remove("visible");
-      viewerSection.style.display = "none";
-      document.getElementById("db-view").innerHTML = "";
-      uploadZoneWrapper.classList.remove("hidden");
-    }
-
-    async function handleFile(file) {
-      currentFile = file;
-      const fileParts = file.name.split(".");
-      const ext = fileParts.length > 1 ? fileParts.pop().toLowerCase() : "";
-
-      // Hide upload zone, show viewer at top
-      uploadZoneWrapper.classList.add("hidden");
-      viewerSection.style.display = "block";
-
-      // Update file info card
-      fileTypeIcon.textContent = ext;
-      fileTypeIcon.className = "file-type-icon " + (ext in fileTypeLabels ? ext : "default");
-      fileName.textContent = file.name;
-      fileMeta.textContent = formatFileSize(file.size) + " • " + (fileTypeLabels[ext] || "File");
-      fileInfoCard.classList.add("visible");
-
-      // Show loading
-      loadingOverlay.classList.add("active");
-
-      try {
-        let base64 = await fileToBase64(file).then((resp) => {
-          return resp.split(",")[1];
+    <script>
+      const fileToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (error) => reject(error);
         });
+      };
 
-        db.show(base64, file.name, "db-view");
-      } catch (err) {
-        console.error("Error processing file:", err);
-      } finally {
-        loadingOverlay.classList.remove("active");
-      }
-    }
+      const formatFileSize = (bytes) => {
+        if (bytes === 0) return "0 Bytes";
+        const k = 1024;
+        const sizes = ["Bytes", "KB", "MB", "GB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+      };
 
-    // Prevent default drag behavior on the whole page
-    ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-      document.body.addEventListener(eventName, (e) => {
+      const fileTypeLabels = {
+        pdf: "PDF Document",
+        xlsx: "Excel Spreadsheet",
+        xls: "Excel Spreadsheet",
+        csv: "CSV File",
+        docx: "Word Document",
+        doc: "Word Document",
+        png: "PNG Image",
+        jpeg: "JPEG Image",
+        jpg: "JPEG Image",
+        svg: "SVG Image",
+        tif: "TIFF Image",
+        tiff: "TIFF Image",
+        eml: "Email Message",
+        html: "HTML Document",
+        txt: "Text File",
+        xml: "XML File",
+      };
+
+      const uploadZone = document.getElementById("uploadZone");
+      const uploadZoneWrapper = document.querySelector(".upload-zone-wrapper");
+      const fileInput = document.getElementById("fileInput");
+      const fileInfoCard = document.getElementById("fileInfoCard");
+      const fileTypeIcon = document.getElementById("fileTypeIcon");
+      const fileName = document.getElementById("fileName");
+      const fileMeta = document.getElementById("fileMeta");
+      const btnRemove = document.getElementById("btnRemove");
+      const btnUploadNew = document.getElementById("btnUploadNew");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+      const viewerSection = document.getElementById("viewerSection");
+
+      let currentFile = null;
+
+      // ===== Click to browse =====
+      uploadZone.addEventListener("click", (e) => {
+        if (e.target === fileInput) return;
+        fileInput.click();
+      });
+
+      // ===== Drag & Drop =====
+      uploadZone.addEventListener("dragenter", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        uploadZone.classList.add("drag-over");
       });
-    });
-  </script>
 
-  <script src="./dist/db-view.js"></script>
-</body>
+      uploadZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.add("drag-over");
+      });
 
+      uploadZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only remove if leaving the zone itself (not a child)
+        if (!uploadZone.contains(e.relatedTarget)) {
+          uploadZone.classList.remove("drag-over");
+        }
+      });
+
+      uploadZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.remove("drag-over");
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+
+      // ===== File input change =====
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          handleFile(e.target.files[0]);
+        }
+      });
+
+      // ===== Upload New =====
+      btnUploadNew.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showUploadZone();
+      });
+
+      // ===== Remove file =====
+      btnRemove.addEventListener("click", (e) => {
+        e.stopPropagation();
+        resetUpload();
+      });
+
+      function showUploadZone() {
+        uploadZoneWrapper.classList.remove("hidden");
+        fileInfoCard.classList.remove("visible");
+        viewerSection.style.display = "none";
+        currentFile = null;
+        fileInput.value = "";
+        uploadZone.classList.remove("has-file");
+        document.getElementById("db-view").innerHTML = "";
+      }
+
+      function resetUpload() {
+        currentFile = null;
+        fileInput.value = "";
+        uploadZone.classList.remove("has-file");
+        fileInfoCard.classList.remove("visible");
+        viewerSection.style.display = "none";
+        document.getElementById("db-view").innerHTML = "";
+        uploadZoneWrapper.classList.remove("hidden");
+      }
+
+      async function handleFile(file) {
+        currentFile = file;
+        const fileParts = file.name.split(".");
+        const ext = fileParts.length > 1 ? fileParts.pop().toLowerCase() : "";
+
+        // Hide upload zone, show viewer at top
+        uploadZoneWrapper.classList.add("hidden");
+        viewerSection.style.display = "block";
+
+        // Update file info card
+        fileTypeIcon.textContent = ext;
+        fileTypeIcon.className =
+          "file-type-icon " + (ext in fileTypeLabels ? ext : "default");
+        fileName.textContent = file.name;
+        fileMeta.textContent =
+          formatFileSize(file.size) + " • " + (fileTypeLabels[ext] || "File");
+        fileInfoCard.classList.add("visible");
+
+        // Show loading
+        loadingOverlay.classList.add("active");
+
+        try {
+          let base64 = await fileToBase64(file).then((resp) => {
+            return resp.split(",")[1];
+          });
+
+          db.show(base64, file.name, "db-view");
+        } catch (err) {
+          console.error("Error processing file:", err);
+        } finally {
+          loadingOverlay.classList.remove("active");
+        }
+      }
+
+      // Prevent default drag behavior on the whole page
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        document.body.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+    </script>
+
+    <script src="./dist/db-view.js"></script>
+  </body>
 </html>

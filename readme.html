@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>db-view Library Documentation</title>
+    <style>
+      :root {
+        --bg: #f6f8fb;
+        --card: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --border: #e5e7eb;
+        --code-bg: #111827;
+        --code-text: #e5e7eb;
+        --success: #059669;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        line-height: 1.6;
+      }
+
+      header {
+        background: linear-gradient(135deg, var(--primary), #7c3aed);
+        color: white;
+        padding: 56px 20px;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 760px;
+        font-size: 1.15rem;
+        opacity: 0.95;
+      }
+
+      main {
+        width: min(1120px, calc(100% - 32px));
+        margin: 32px auto 64px;
+      }
+
+      section {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 28px;
+        margin-bottom: 24px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+      }
+
+      h2 {
+        margin-top: 0;
+        color: #111827;
+        font-size: 1.65rem;
+      }
+
+      h3 {
+        color: #111827;
+        margin-bottom: 8px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .stat-card {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 14px;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .stat-card strong {
+        display: block;
+        color: var(--primary-dark);
+        font-size: 2rem;
+        line-height: 1;
+        margin-bottom: 8px;
+      }
+
+      .format-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+        padding: 0;
+        margin: 20px 0 0;
+        list-style: none;
+      }
+
+      .format-grid li {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        background: #fbfdff;
+      }
+
+      .badge {
+        display: inline-block;
+        background: #dbeafe;
+        color: #1e40af;
+        border-radius: 999px;
+        padding: 3px 10px;
+        margin: 2px 3px 8px 0;
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      pre {
+        overflow-x: auto;
+        background: var(--code-bg);
+        color: var(--code-text);
+        padding: 18px;
+        border-radius: 12px;
+        font-size: 0.95rem;
+      }
+
+      code {
+        font-family: Consolas, Monaco, "Courier New", monospace;
+      }
+
+      :not(pre) > code {
+        background: #eef2ff;
+        color: #3730a3;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f3f4f6;
+      }
+
+      .note {
+        border-left: 4px solid var(--success);
+        background: #ecfdf5;
+        padding: 14px 16px;
+        border-radius: 10px;
+        color: #064e3b;
+      }
+
+      footer {
+        text-align: center;
+        color: var(--muted);
+        padding: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>db-view</h1>
+      <p>
+        A browser document viewer library for rendering common documents,
+        images, spreadsheets, text files, emails, SVGs, and TIFF files from
+        Base64 data.
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>Overview</h2>
+        <p>
+          <strong>db-view</strong> provides a simple <code>db.show()</code> API
+          that renders a document inside any HTML container by detecting the
+          file extension. It includes built-in styles, zoom controls for most
+          formats, safe text handling, iframe-based PDF display, spreadsheet
+          table rendering, DOC/DOCX rendering, and cleanup helpers for memory
+          management.
+        </p>
+
+        <div class="stats">
+          <div class="stat-card">
+            <strong>14</strong>
+            Supported file extensions
+          </div>
+          <div class="stat-card">
+            <strong>10</strong>
+            Main document groups
+          </div>
+          <div class="stat-card">
+            <strong>1</strong>
+            Main render API
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Supported Documents and Files</h2>
+        <p>
+          The library currently supports
+          <strong>14 file extensions</strong> across
+          <strong>10 document groups</strong>:
+        </p>
+
+        <ul class="format-grid">
+          <li>
+            <span class="badge">PDF</span>
+            <h3>PDF Documents</h3>
+            <p>Renders PDF files in an iframe viewer.</p>
+          </li>
+          <li>
+            <span class="badge">PNG</span>
+            <h3>PNG Images</h3>
+            <p>Displays Base64 PNG images with viewer styling.</p>
+          </li>
+          <li>
+            <span class="badge">JPG</span><span class="badge">JPEG</span>
+            <h3>JPEG Images</h3>
+            <p>Displays JPG/JPEG images with zoom support.</p>
+          </li>
+          <li>
+            <span class="badge">EML</span>
+            <h3>Email Files</h3>
+            <p>Renders email message content from EML files.</p>
+          </li>
+          <li>
+            <span class="badge">HTML</span>
+            <h3>HTML Documents</h3>
+            <p>Displays HTML content using the library HTML renderer.</p>
+          </li>
+          <li>
+            <span class="badge">XLSX</span><span class="badge">XLS</span
+            ><span class="badge">CSV</span>
+            <h3>Spreadsheets</h3>
+            <p>Converts spreadsheet data into readable HTML tables.</p>
+          </li>
+          <li>
+            <span class="badge">DOCX</span><span class="badge">DOC</span>
+            <h3>Word Documents</h3>
+            <p>Renders Word documents using the document renderer.</p>
+          </li>
+          <li>
+            <span class="badge">TXT</span><span class="badge">XML</span>
+            <h3>Text and XML</h3>
+            <p>
+              Displays text safely inside a <code>&lt;pre&gt;</code> element.
+            </p>
+          </li>
+          <li>
+            <span class="badge">SVG</span>
+            <h3>SVG Images</h3>
+            <p>Renders SVG content inside the viewer container.</p>
+          </li>
+          <li>
+            <span class="badge">TIF</span><span class="badge">TIFF</span>
+            <h3>TIFF Images</h3>
+            <p>
+              Supports TIFF rendering with previous/next page controls for
+              multi-page TIFF files.
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>How to Build the Library</h2>
+
+        <p>The webpack output is configured to generate:</p>
+        <pre><code>dist/db-view.js</code></pre>
+      </section>
+
+      <section>
+        <h2>Basic Browser Usage</h2>
+        <p>
+          Add the bundled script to your page, create a container, and call
+          <code>db.show(base64Data, fileName, containerId)</code>.
+        </p>
+
+        <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;title&gt;db-view Example&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;input type="file" id="fileInput" /&gt;
+  &lt;div id="viewer"&gt;&lt;/div&gt;
+
+  &lt;script src="dist/db-view.js"&gt;&lt;/script&gt;
+  &lt;script&gt;
+    document.getElementById("fileInput").addEventListener("change", function (event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        // reader.result is a Data URL. db.show also accepts raw Base64.
+        db.show(reader.result, file.name, "viewer");
+      };
+      reader.readAsDataURL(file);
+    });
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+      </section>
+
+      <section>
+        <h2>ES Module Usage</h2>
+        <p>
+          The source exports the main <code>db</code> object and individual
+          renderers.
+        </p>
+
+        <pre><code>import { db } from "./src/index.js";
+
+const base64Data = "...";
+db.show(base64Data, "sample.pdf", "viewer");</code></pre>
+
+        <p>
+          You can also import specific renderers if your build setup supports
+          it:
+        </p>
+        <pre><code>import { pdf, png, jpeg, xlsx, doc, txt, svg, tiff } from "./src/index.js";</code></pre>
+      </section>
+
+      <section>
+        <h2>Main API</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Description</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>db.show(data, file, id, options)</code></td>
+              <td>
+                Renders Base64 document data into the container whose ID is
+                provided.
+              </td>
+              <td><code>db.show(base64, "report.pdf", "viewer")</code></td>
+            </tr>
+            <tr>
+              <td><code>db.cleanup(containerId)</code></td>
+              <td>
+                Cleans event listeners, canvases, iframes, blob URLs, and
+                TIFF/PDF resources for one viewer.
+              </td>
+              <td><code>db.cleanup("viewer")</code></td>
+            </tr>
+            <tr>
+              <td><code>db.cleanupAll()</code></td>
+              <td>Cleans all viewer containers and cached assets.</td>
+              <td><code>db.cleanupAll()</code></td>
+            </tr>
+            <tr>
+              <td><code>db.getVersion()</code></td>
+              <td>Returns the current library version string.</td>
+              <td><code>db.getVersion()</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Parameters for <code>db.show()</code></h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Required</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>data</code></td>
+              <td>String</td>
+              <td>Yes</td>
+              <td>
+                Base64 document data. Data URLs such as
+                <code>data:application/pdf;base64,...</code> are also accepted.
+              </td>
+            </tr>
+            <tr>
+              <td><code>file</code></td>
+              <td>String</td>
+              <td>Yes</td>
+              <td>
+                File name with extension. The extension decides which renderer
+                is used.
+              </td>
+            </tr>
+            <tr>
+              <td><code>id</code></td>
+              <td>String</td>
+              <td>Yes</td>
+              <td>
+                ID of the HTML element where the document should be rendered.
+              </td>
+            </tr>
+            <tr>
+              <td><code>options</code></td>
+              <td>Object</td>
+              <td>No</td>
+              <td>
+                Optional configuration object reserved for viewer options.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Important Notes</h2>
+        <div class="note">
+          <strong>Tip:</strong> Always pass the correct file name extension
+          because the library chooses the renderer from the extension.
+        </div>
+        <ul>
+          <li>
+            Call <code>db.cleanup(containerId)</code> before removing a viewer
+            from the page.
+          </li>
+          <li>
+            Call <code>db.cleanupAll()</code> when closing a page or clearing
+            multiple viewers.
+          </li>
+          <li>
+            PDF files are displayed in an iframe and use the browser/PDF
+            rendering flow.
+          </li>
+          <li>
+            Spreadsheet rendering is asynchronous internally, so large files may
+            take a moment to appear.
+          </li>
+          <li>
+            TIFF files can include page navigation controls when multiple pages
+            are available.
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>db-view documentation · Generated for this project</footer>
+  </body>
+</html>
