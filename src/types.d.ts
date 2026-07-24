@@ -4,7 +4,7 @@
  */
 
 // File type definitions
-export type FileExtension = "pdf" | "png" | "jpeg" | "jpg" | "eml" | "html" | "xlsx" | "xls" | "csv" | "docx" | "doc" | "txt" | "xml" | "svg" | "tif" | "tiff";
+export type FileExtension = "pdf" | "png" | "jpeg" | "jpg" | "eml" | "msg" | "html" | "xlsx" | "xls" | "csv" | "docx" | "doc" | "txt" | "xml" | "svg" | "tif" | "tiff";
 
 // Base64 data type
 export type Base64Data = string;
@@ -231,6 +231,7 @@ export interface FileRenderers {
   png: (data: Base64Data, options?: ImageSourceOptions) => string;
   jpeg: (data: Base64Data, options?: ImageSourceOptions) => string;
   eml: (data: Base64Data, options?: SanitizeOptions) => string;
+  msg: (data: Base64Data) => string;
   html: (data: Base64Data, options?: SanitizeOptions) => string;
   xlsx: (data: Base64Data) => Promise<string>;
   doc: (data: Base64Data, id: string, options?: DocRenderOptions) => Promise<void>;

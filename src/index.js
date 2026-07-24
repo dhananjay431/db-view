@@ -8,7 +8,8 @@ import doc from "./doc.js";
 import txt from "./txt.js";
 import svg from "./svg.js";
 import tiff from "./tiff.js";
-import {cleanupContainer, assetCache} from "./utils.js";
+import msg from "./msg.js";
+import { cleanupContainer, assetCache } from "./utils.js";
 
 // Storage for event listeners and cleanup functions
 const containers = new Map();
@@ -170,6 +171,8 @@ const db = {
         contentContainer.innerHTML = jpeg(data);
       } else if ("eml" === ext) {
         contentContainer.innerHTML = eml(data);
+      } else if ("msg" === ext) {
+        contentContainer.innerHTML = msg(data);
       } else if ("html" === ext) {
         contentContainer.innerHTML = html(data);
       } else if ("xlsx" === ext || "xls" === ext || "csv" === ext) {
@@ -556,7 +559,7 @@ if (typeof window !== "undefined") {
 }
 
 // Export as ES6 module
-export {db};
+export { db };
 
 // Re-export all file renderers for direct import
-export {pdf, png, jpeg, eml, html, xlsx, doc, txt, svg, tiff};
+export { pdf, png, jpeg, eml, html, xlsx, doc, txt, svg, tiff, msg };
