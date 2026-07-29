@@ -9,7 +9,7 @@
  */
 export const SanitizerConfig = {
   allowDataUrls: true,
-  allowedProtocols: ["http:", "https:", "data:"],
+  allowedProtocols: ["http:", "https:", "mailto:", "tel:", "data:"],
   allowedTags: [
     "a",
     "b",
@@ -144,6 +144,7 @@ export const SanitizerConfig = {
     "bgcolor",
     "bordercolor",
     "background",
+    "download",
   ],
   eventAttributes: [
     "onabort",
@@ -250,13 +251,27 @@ export function sanitizeElement(element, config = SanitizerConfig) {
       return;
     }
 
-    // Validate href and src attributes for dangerous protocols
+    // Validate href and src attributes for dangerous protocols (Rule 10)
     if (attrName === "href" || attrName === "src") {
-      const safeProtocols = config.allowedProtocols;
       let url = attrValue.trim().toLowerCase();
 
-      // Handle data URLs
+      // Explicitly block dangerous protocols
+      if (
+        url.startsWith("javascript:") ||
+        url.startsWith("vbscript:") ||
+        url.startsWith("file:")
+      ) {
+        element.removeAttribute(attrName);
+        return;
+      }
+
+      // Rule 10: data: is blocked for href (hyperlinks), allowed only for src
+      // (images) so inline attachments still render.
       if (url.startsWith("data:")) {
+        if (attrName === "href") {
+          element.removeAttribute(attrName);
+          return;
+        }
         if (!config.allowDataUrls) {
           element.removeAttribute(attrName);
           return;
@@ -271,24 +286,20 @@ export function sanitizeElement(element, config = SanitizerConfig) {
           return;
         }
       }
+      // mailto: and tel: are safe (Rules 7, 8, 10)
+      else if (url.startsWith("mailto:") || url.startsWith("tel:")) {
+        // Allow email and telephone links
+      }
       // Handle protocol-relative URLs
       else if (url.startsWith("//")) {
-        // Only allow HTTPS for protocol-relative URLs
-        if (!config.allowDataUrls) {
-          element.removeAttribute(attrName);
-          return;
-        }
+        // Allow protocol-relative URLs (they inherit from parent)
       }
       // Handle relative URLs
       else if (url.startsWith("/")) {
         // Allow relative URLs
       }
       // Handle absolute URLs - only allow http/https
-      else if (
-        !url.startsWith("http://") &&
-        !url.startsWith("https://") &&
-        !url.startsWith("about:")
-      ) {
+      else if (!url.startsWith("http://") && !url.startsWith("https://")) {
         element.removeAttribute(attrName);
         return;
       }
@@ -303,6 +314,23 @@ export function sanitizeElement(element, config = SanitizerConfig) {
       element.removeAttribute(attrName);
     }
   });
+
+  // Rule 11: external links always open in a new tab.
+  // Rule 9:  show the full destination URL as a tooltip on hover.
+  if (element.tagName.toLowerCase() === "a") {
+    const href = element.getAttribute("href");
+    if (href) {
+      // Preserve download links (data: with a download attribute) as-is.
+      if (!href.trim().toLowerCase().startsWith("data:")) {
+        element.setAttribute("target", "_blank");
+        element.setAttribute("rel", "noopener noreferrer");
+      }
+      // Add a tooltip with the destination URL when no title is present (Rule 9).
+      if (!element.hasAttribute("title")) {
+        element.setAttribute("title", href);
+      }
+    }
+  }
 
   // Process child nodes recursively
   const childNodes = Array.from(element.childNodes);
@@ -420,12 +448,24 @@ export function sanitizeAttribute(
     return "";
   }
 
-  // Validate href and src attributes
+  // Validate href and src attributes (Rule 10)
   if (attrName === "href" || attrName === "src") {
     let value = attributeValue.trim();
+    let lower = value.toLowerCase();
 
-    // Handle data URLs
-    if (value.startsWith("data:")) {
+    // Explicitly block dangerous protocols
+    if (
+      lower.startsWith("javascript:") ||
+      lower.startsWith("vbscript:") ||
+      lower.startsWith("file:")
+    ) {
+      return "";
+    }
+
+    // Rule 10: data: is blocked for href (hyperlinks), allowed only for src
+    // (images) so inline attachments still render.
+    if (lower.startsWith("data:")) {
+      if (attrName === "href") return "";
       if (!config.allowDataUrls) return "";
       if (
         !value.match(/^data:(image\/|text\/|application\/pdf|video\/|audio\/)/i)
@@ -433,16 +473,16 @@ export function sanitizeAttribute(
         return "";
       }
     }
+    // mailto: and tel: are safe (Rules 7, 8, 10)
+    else if (lower.startsWith("mailto:") || lower.startsWith("tel:")) {
+      // Allow email and telephone links
+    }
     // Handle protocol-relative URLs
     else if (value.startsWith("//")) {
       // Allow protocol-relative URLs (they inherit from parent)
     }
-    // Handle absolute URLs
-    else if (
-      !value.startsWith("http://") &&
-      !value.startsWith("https://") &&
-      !value.startsWith("about:")
-    ) {
+    // Handle absolute URLs - only allow http/https
+    else if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
       return "";
     }
 

@@ -1,6 +1,20 @@
 /**
  * db-view MSG (Outlook .msg) file renderer
  * Parses the OLE2 compound .msg format and renders it like msg-viewer.pages.dev
+ *
+ * Hyperlink rendering follows agents.md rules:
+ *   - Rule 1, 4: Display only the author-visible text
+ *   - Rule 2:     href is hidden from UI but preserved
+ *   - Rule 3, 11: target="_blank" rel="noopener noreferrer"
+ *   - Rule 5:     If link text equals URL, display the URL as-is
+ *   - Rule 6:     Plain text URLs auto-linkified
+ *   - Rule 7:     Email -> mailto:
+ *   - Rule 8:     Phone -> tel:
+ *   - Rule 9:     title= attribute shows full destination on hover
+ *   - Rule 10:    Only safe protocols (sanitizer.js enforces)
+ *   - Rule 12:    color #0a66c2, underline
+ *   - Rule 15, 16: Preserve HTML, sanitize via sanitizeHtml
+ *   - Rule 17:    HTML, RTF, and plain text bodies all supported
  */
 
 import { Msg } from "msg-parser";
@@ -99,6 +113,103 @@ function metaRow(label, value) {
   );
 }
 
+// Run a regex transform over only the segments of `s` that are NOT inside
+// an existing <a ...>...</a> block. This avoids nesting new <a> tags inside
+// ones we already created in a previous pass.
+function applyOutsideAnchors(s, pattern, replacer) {
+  var parts = String(s).split(/(<a [^>]*>[\s\S]*?<\/a>)/gi);
+  for (var i = 0; i < parts.length; i++) {
+    if (/^<a\s/i.test(parts[i])) continue;
+    parts[i] = parts[i].replace(pattern, replacer);
+  }
+  return parts.join("");
+}
+
+// Strip everything except digits and a leading '+' from a phone number.
+function digitsForTel(displayText) {
+  var hasPlus = /^\s*\+/.test(displayText);
+  var digits = String(displayText).replace(/[^0-9]/g, "");
+  if (hasPlus) return "+" + digits;
+  return digits;
+}
+
+// Build an <a> tag with the standard set of attributes used everywhere in
+// this file. Centralizing keeps Rule 3/9/11 consistent.
+function buildAnchor(href, displayText) {
+  return (
+    '<a href="' +
+    href +
+    '" target="_blank" rel="noopener noreferrer" title="' +
+    href +
+    '">' +
+    displayText +
+    "</a>"
+  );
+}
+
+// Convert URLs, email addresses, and phone numbers in already-escaped
+// plain text into clickable <a> tags. The caller MUST pass HTML-escaped
+// text so that injection via crafted input is impossible. The returned
+// string is then passed through sanitizeHtml() to keep XSS protection.
+//
+// Rules implemented here:
+//   Rule 6 - plain text URLs auto-linkified (displayed as-is, per Rule 5)
+//   Rule 7 - email -> mailto:
+//   Rule 8 - phone -> tel:
+//   Rule 9 - title= attribute on every generated anchor
+//   Rule 11 - target=_blank rel=noopener noreferrer
+function linkifyPlainText(escapedText) {
+  var s = String(escapedText == null ? "" : escapedText);
+
+  // 1. http(s)://... URLs (stop at whitespace, quotes, angle brackets, or backticks)
+  s = s.replace(/\bhttps?:\/\/[^\s<>"'`)\]\}]+/gi, function (url) {
+    var trimmed = url.replace(/[.,;:!?]+$/, "");
+    var trailing = url.substring(trimmed.length);
+    return buildAnchor(trimmed, trimmed) + trailing;
+  });
+
+  // 2. www.example.com URLs (skip ones already inside an <a> tag)
+  s = applyOutsideAnchors(
+    s,
+    /(^|[^="'>])(\bwww\.[^\s<>"'`)\]\}]+)/gi,
+    function (match, prefix, url) {
+      var trimmed = url.replace(/[.,;:!?]+$/, "");
+      var trailing = url.substring(trimmed.length);
+      return prefix + buildAnchor("https://" + trimmed, trimmed) + trailing;
+    },
+  );
+
+  // 3. mailto: links for plain email addresses (skip ones inside an <a> tag)
+  s = applyOutsideAnchors(
+    s,
+    /(^|[^\w@./-])([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})/g,
+    function (match, prefix, email) {
+      return prefix + buildAnchor("mailto:" + email, email);
+    },
+  );
+
+  // 4. tel: links for phone numbers. We require either:
+  //      - an explicit leading '+' (international), e.g. +1 555 123 4567
+  //      - OR a North American style 10-digit grouping: (NNN) NNN-NNNN
+  //      - OR a 10+ digit run with at least one separator (space/dash/dot)
+  //    The visible text is the original phone number (Rule 4 - never
+  //    modify displayed text); the href uses digits-only (tel: scheme
+  //    requirement).
+  s = applyOutsideAnchors(
+    s,
+    /(\+[0-9](?:[0-9().\- \u00A0]*[0-9]){6,}[0-9]|\([0-9]{3}\)\s?[0-9]{3}[-.][0-9]{4}|\b[0-9]{3}[-. ][0-9]{3}[-. ][0-9]{4}\b)/g,
+    function (phone) {
+      // Skip if it's actually inside a longer digit run that looks like a URL.
+      // Heuristic: a phone with `://` before it would be caught by the URL pass.
+      // We only see this string after the URL pass, so it's safe.
+      var href = "tel:" + digitsForTel(phone);
+      return buildAnchor(href, phone);
+    },
+  );
+
+  return s;
+}
+
 // Build attachments HTML
 function buildAttachments(message) {
   try {
@@ -194,7 +305,7 @@ export default function msg(data) {
       formatDate(safeGetProperty(message, PidTagClientSubmitTime)) ||
       formatDate(safeGetProperty(message, PidTagMessageDeliveryTime));
 
-    // Body - prefer HTML, fall back to plain text
+    // Body - prefer HTML, fall back to plain text (with URL linkification)
     var bodyHtml = "";
     var bodyPlain = safeGetProperty(message, PidTagBody);
     var bodyHtmlRaw = safeGetProperty(message, PidTagBodyHtml);
@@ -202,10 +313,12 @@ export default function msg(data) {
     if (bodyHtmlRaw && String(bodyHtmlRaw).trim()) {
       bodyHtml = sanitizeHtml(String(bodyHtmlRaw));
     } else if (bodyPlain != null && String(bodyPlain).trim()) {
+      // Escape first, then convert URLs/emails/phones to clickable links,
+      // then run through sanitizeHtml for defense in depth.
+      var escaped = escapeHtml(String(bodyPlain));
+      var linkified = linkifyPlainText(escaped);
       bodyHtml =
-        '<pre class="msg-plaintext">' +
-        escapeHtml(String(bodyPlain)) +
-        "</pre>";
+        '<pre class="msg-plaintext">' + sanitizeHtml(linkified) + "</pre>";
     } else {
       bodyHtml =
         '<pre class="msg-plaintext">(No readable body found in this MSG file)</pre>';
@@ -224,8 +337,16 @@ export default function msg(data) {
       ".msg-meta-label{font-weight:600;color:#6c757d;min-width:60px;flex-shrink:0;}" +
       ".msg-meta-value{color:#1f2937;word-break:break-word;}" +
       ".msg-body{padding:20px;font-size:14px;line-height:1.6;color:#1f2937;}" +
-      ".msg-body a{color:#2563eb;}" +
+      // Rule 12: hyperlink styling — #0a66c2, underline, cursor pointer.
+      // Rule 11: external links always open in a new tab (handled in HTML).
+      ".msg-body a{color:#0a66c2;text-decoration:underline;cursor:pointer;word-break:break-word;overflow-wrap:break-word;}" +
+      ".msg-body a:hover{text-decoration:underline;color:#084d92;}" +
+      // Rule 13: accessibility — keyboard focus styles and Enter-key support.
+      ".msg-body a:focus{outline:2px solid #0a66c2;outline-offset:2px;text-decoration:underline;}" +
+      ".msg-plaintext a:focus{outline:2px solid #0a66c2;outline-offset:2px;text-decoration:underline;}" +
       ".msg-plaintext{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:14px;line-height:1.6;text-align:left;}" +
+      ".msg-plaintext a{color:#0a66c2;text-decoration:underline;cursor:pointer;word-break:break-word;overflow-wrap:break-word;display:inline-block;}" +
+      ".msg-plaintext a:hover{color:#084d92;}" +
       ".msg-attachments{padding:12px 20px;border-top:1px solid #f0f0f0;background:#fafafa;}" +
       ".msg-attachments-title{font-size:13px;font-weight:700;color:#6c757d;margin-bottom:10px;}" +
       ".msg-attachments-list{display:flex;flex-direction:column;gap:8px;}" +
